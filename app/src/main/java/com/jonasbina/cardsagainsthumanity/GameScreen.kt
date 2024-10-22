@@ -337,7 +337,7 @@ class GameScreen(private val content: String) : Screen {
             filledText = filledText.replaceFirst("_", cardText)
         }
         if (originalText.count { it == '_' } == 0 && selectedCards.size == 1) {
-            filledText += selectedCards[0].text
+            filledText += (" " + selectedCards[0].text)
         }
         return filledText
     }
