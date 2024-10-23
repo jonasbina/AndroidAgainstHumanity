@@ -9,7 +9,7 @@ lifecycleRuntimeKtx = "2.8.6"
 activityCompose = "1.9.3"
 composeBom = "2024.10.00"
 voyagerVersion = "1.1.0-beta03"
-
+kstore = "0.8.0"
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
@@ -29,6 +29,8 @@ kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-
 voyager-navigator = { group = "cafe.adriel.voyager", name = "voyager-navigator", version.ref="voyagerVersion" }
 voyager-transitions = { group = "cafe.adriel.voyager", name = "voyager-transitions", version.ref="voyagerVersion" }
 voyager-screenmodel = { group = "cafe.adriel.voyager", name = "voyager-screenmodel", version.ref="voyagerVersion" }
+kstore = { module = "io.github.xxfast:kstore", version.ref = "kstore" }
+kstore-file = { module = "io.github.xxfast:kstore-file", version.ref = "kstore" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

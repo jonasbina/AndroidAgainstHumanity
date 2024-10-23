@@ -11,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Star
+import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -32,6 +34,7 @@ import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
 import kotlinx.coroutines.launch
+import okio.Path
 
 val inter = FontFamily(
     listOf(
@@ -40,11 +43,12 @@ val inter = FontFamily(
 )
 val lowerCaseEnabled = false
 
-class GameScreen(private val content: String) : Screen {
+class GameScreen(private val content: String, private val savedJokesPath: String) : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current!!
-        val model = navigator.rememberNavigatorScreenModel { GameScreenModel(content) }
+        val model =
+            navigator.rememberNavigatorScreenModel { GameScreenModel(content, savedJokesPath) }
         val state by model.state.collectAsState()
         val scope = rememberCoroutineScope()
 
@@ -109,7 +113,7 @@ class GameScreen(private val content: String) : Screen {
                     modifier = Modifier.weight(1f)
                 ) {
                     items(
-                        items = state.whiteCards,
+                        items = state.whiteCards.toList(),
                         key = { it.text }  // Add an id property to WhiteCard class
                     ) { card ->
                         WhiteCardItem(
@@ -119,14 +123,41 @@ class GameScreen(private val content: String) : Screen {
                                 scope.launch {
                                     model.selectWhiteCard(card)
                                 }
-                            }
+                            },
+                            modifier = Modifier.animateItem()
                         )
                     }
                 }
-                Box(Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
+                Row(
+                    Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
                     IconButton(onClick = { model.reload() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Reload")
                     }
+                    AnimatedVisibility(state.blackCard.pick == state.selectedWhiteCards.size) {
+                        Button(onClick = {
+                            if (state.saved) {
+                                model.removeJoke(
+                                    SavedJoke(
+                                        state.blackCard,
+                                        state.selectedWhiteCards
+                                    )
+                                )
+                            } else {
+                                model.addJoke(SavedJoke(state.blackCard, state.selectedWhiteCards))
+                            }
+                        }) {
+                            AnimatedContent(state.saved) {
+                                Text(
+                                    if (it) "Remove from saved" else "Save",
+                                    fontFamily = inter
+                                )
+                            }
+                        }
+                    }
+
                 }
 
 
@@ -178,7 +209,7 @@ class GameScreen(private val content: String) : Screen {
     @Composable
     private fun AnimatedBlackCard(
         blackCard: GameScreenModel.BlackCard,
-        selectedCards: List<GameScreenModel.WhiteCard>
+        selectedCards: Set<GameScreenModel.WhiteCard>
     ) {
         Card(
             modifier = Modifier
@@ -247,7 +278,8 @@ class GameScreen(private val content: String) : Screen {
         card: GameScreenModel.WhiteCard,
         selected: Boolean,
         onClick: () -> Unit,
-        cornerRadius: Dp = 12.dp
+        cornerRadius: Dp = 12.dp,
+        modifier: Modifier = Modifier
     ) {
         val scale by animateFloatAsState(
             targetValue = if (selected) 1.05f else 1f,
@@ -258,7 +290,7 @@ class GameScreen(private val content: String) : Screen {
         )
 
         Card(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
                 .scale(scale)
                 .clip(RoundedCornerShape(cornerRadius))
@@ -322,23 +354,23 @@ class GameScreen(private val content: String) : Screen {
             )
         }
     }
+}
 
-    private fun generateFilledText(
-        originalText: String,
-        selectedCards: List<GameScreenModel.WhiteCard>
-    ): String {
-        var filledText = originalText
-        selectedCards.forEachIndexed { index, card ->
-            var cardText = card.text
-            cardText = if (cardText.last() == '.') cardText.dropLast(1) else cardText
-            if (!filledText.startsWith("_") && lowerCaseEnabled) {
-                cardText = cardText.first().lowercase() + cardText.drop(1)
-            }
-            filledText = filledText.replaceFirst("_", cardText)
+fun generateFilledText(
+    originalText: String,
+    selectedCards: Set<GameScreenModel.WhiteCard>
+): String {
+    var filledText = originalText
+    selectedCards.forEachIndexed { index, card ->
+        var cardText = card.text
+        cardText = if (cardText.last() == '.') cardText.dropLast(1) else cardText
+        if (!filledText.startsWith("_") && lowerCaseEnabled) {
+            cardText = cardText.first().lowercase() + cardText.drop(1)
         }
-        if (originalText.count { it == '_' } == 0 && selectedCards.size == 1) {
-            filledText += (" " + selectedCards[0].text)
-        }
-        return filledText
+        filledText = filledText.replaceFirst("_", cardText)
     }
+    if (originalText.count { it == '_' } == 0 && selectedCards.size == 1) {
+        filledText += (" " + selectedCards.toList()[0].text)
+    }
+    return filledText
 }
