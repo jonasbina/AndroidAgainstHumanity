@@ -1,5 +1,6 @@
 package com.jonasbina.cardsagainsthumanity
 
+import PackSelectionMode
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import io.github.xxfast.kstore.KStore
@@ -14,20 +15,31 @@ import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
 import okio.Path
 import okio.Path.Companion.toPath
+@Serializable
+data class SavedJoke(
+    val blackCard: GameScreenModel.BlackCard,
+    val whiteCards: Set<GameScreenModel.WhiteCard>,
+) {
+    val filledIn = generateFilledText(blackCard.text, whiteCards)
+}
 
 class GameScreenModel(content: String, path: String) : ScreenModel {
-    val cards = loadCardPacksFromFile(content)
+    // Keep cards as a private property, not in state
+    private val cardDecks = loadCardPacksFromFile(content)
+    val kstore: KStore<List<SavedJoke>> = storeOf(path.toPath())
+
     private val _state = MutableStateFlow(
         GameState(
-            cardPacks = cards.take(1).toSet(),
-            whiteCards = cards[0].white!!.shuffled().take(10).toSet(),
-            blackCard = cards[0].black!!.shuffled()[0],
-            blackCardsAvailable = cards[0].black ?: emptySet(),
-            whiteCardsAvailable = cards[0].white ?: emptySet(),
-            roundsDone = 0
+            // Store minimal initial state
+            selectedPackIndices = setOf(0),
+            currentWhiteCards = emptySet(),
+            currentBlackCard = null,
+            blackCardsInPlay = emptySet(),
+            whiteCardsInPlay = emptySet(),
+            roundsDone = 0,
+            packSelectionMode = PackSelectionMode.DEFAULT
         )
     )
-    val kstore: KStore<List<SavedJoke>> = storeOf(path.toPath())
     val state = _state.asStateFlow()
 
     @Serializable
@@ -47,68 +59,108 @@ class GameScreenModel(content: String, path: String) : ScreenModel {
     @Serializable
     data class BlackCard(
         val text: String,
-        val pick: Int, // how many white cards needed
+        val pick: Int,
         val pack: Int
     )
 
-    private fun loadCardPacksFromFile(fileContent: String): List<CardPack> {
-        val json = Json { ignoreUnknownKeys = true }
-        return json.decodeFromString(fileContent)
+    data class GameState(
+        val selectedPackIndices: Set<Int>,
+        val currentWhiteCards: Set<WhiteCard>,
+        val currentBlackCard: BlackCard?,
+        val blackCardsInPlay: Set<BlackCard>,
+        val whiteCardsInPlay: Set<WhiteCard>,
+        val roundsDone: Int,
+        val selectedWhiteCards: Set<WhiteCard> = emptySet(),
+        val savedJokes: List<SavedJoke> = emptyList(),
+        val saved: Boolean = false,
+        val packSelectionMode: PackSelectionMode
+    ) {
+        // Add computed properties to get available cards based on selected packs
+        val availableWhiteCards: Set<WhiteCard> get() = whiteCardsInPlay
+        val availableBlackCards: Set<BlackCard> get() = blackCardsInPlay
+    }
+
+    init {
+        // Initialize the game with first pack
+        updateSelectedPacks(setOf(0))
+
+        // Load saved jokes
+        screenModelScope.launch {
+            val savedJokes = kstore.get()
+            if (savedJokes != null) {
+                _state.update { it.copy(savedJokes = savedJokes) }
+            } else {
+                kstore.set(emptyList())
+            }
+        }
+    }
+    fun setPackSeletionMode(packSelectionMode: PackSelectionMode){
+        _state.update {
+            it.copy(packSelectionMode = packSelectionMode)
+        }
     }
 
     fun newRound() {
-        val newBlackCard =
-            (state.value.blackCardsAvailable - state.value.blackCard).shuffled().first()
-        val newWhiteCards = (state.value.whiteCardsAvailable - state.value.whiteCards).shuffled()
-            .take(state.value.selectedWhiteCards.size)
+        val state = state.value
+        val newBlackCard = (state.availableBlackCards - (state.currentBlackCard)).random()
+        val newWhiteCards = (state.availableWhiteCards - state.currentWhiteCards)
+            .shuffled()
+            .take(state.selectedWhiteCards.size)
+            .toSet()
+
         _state.update {
             it.copy(
-                it.cardPacks,
-                it.whiteCards - it.selectedWhiteCards + newWhiteCards,
-                newBlackCard,
-                it.blackCardsAvailable,
-                it.whiteCardsAvailable,
-                it.roundsDone + 1,
-                emptySet(),
-                it.savedJokes,
-                false
+                currentWhiteCards = it.currentWhiteCards - it.selectedWhiteCards + newWhiteCards,
+                currentBlackCard = newBlackCard,
+                roundsDone = it.roundsDone + 1,
+                selectedWhiteCards = emptySet(),
+                saved = false
             )
         }
     }
 
     fun selectWhiteCard(whiteCard: WhiteCard) {
-        if (state.value.selectedWhiteCards.contains(whiteCard)) {
-            return
-        }
-        if (state.value.selectedWhiteCards.size == state.value.blackCard.pick) {
-            _state.update {
-                it.copy(selectedWhiteCards = emptySet())
-            }
-        }
-        _state.update {
-            it.copy(selectedWhiteCards = it.selectedWhiteCards + whiteCard)
+        val state = state.value
+        if (state.selectedWhiteCards.contains(whiteCard)) return
+
+        if (state.selectedWhiteCards.size == state.currentBlackCard?.pick ?: 0) {
+            _state.update { it.copy(selectedWhiteCards = emptySet()) }
         }
 
+        _state.update {
+            it.copy(selectedWhiteCards = it.selectedWhiteCards + whiteCard, saved = false)
+        }
+    }
+
+    fun unselectWhiteCard(whiteCard: WhiteCard) {
+        _state.update {
+            it.copy(selectedWhiteCards = it.selectedWhiteCards - whiteCard)
+        }
     }
 
     fun reload() {
-        val newCards = state.value.whiteCardsAvailable.shuffled().take(10).toSet()
-        _state.update { it.copy(whiteCards = newCards) }
+        val state = state.value
+        val newCards = state.availableWhiteCards.shuffled().take(10).toSet()
+        _state.update { it.copy(currentWhiteCards = newCards) }
     }
 
-    fun updateCards(selectedPacks: Set<CardPack>) {
+    fun updateSelectedPacks(selectedIndices: Set<Int>) {
+        // Get all cards from selected packs
+        val selectedPacks = selectedIndices.map { cardDecks[it] }
+        val allWhiteCards = selectedPacks.flatMap { it.white ?: emptySet() }.toSet()
+        val allBlackCards = selectedPacks.flatMap { it.black ?: emptySet() }.toSet()
+
+        // Initialize the game state with new cards
         _state.update {
             it.copy(
-                cardPacks = selectedPacks,
-
-                whiteCards = selectedPacks.map { it.white ?: emptySet() }.flatten().shuffled()
-                    .take(10).toSet(),
-                blackCard = selectedPacks.map { it.black ?: emptySet() }.flatten().shuffled()[0],
-                blackCardsAvailable = selectedPacks.map { it.black ?: emptySet() }.flatten()
-                    .toSet(),
-                whiteCardsAvailable = selectedPacks.map { it.white ?: emptySet() }.flatten()
-                    .toSet(),
-                roundsDone = 0
+                selectedPackIndices = selectedIndices,
+                currentWhiteCards = allWhiteCards.shuffled().take(10).toSet(),
+                currentBlackCard = allBlackCards.random(),
+                blackCardsInPlay = allBlackCards,
+                whiteCardsInPlay = allWhiteCards,
+                roundsDone = 0,
+                selectedWhiteCards = emptySet(),
+                saved = false
             )
         }
     }
@@ -117,52 +169,21 @@ class GameScreenModel(content: String, path: String) : ScreenModel {
         _state.update {
             it.copy(savedJokes = it.savedJokes + savedJoke, saved = true)
         }
-        kstore.update {
-            (it ?: emptyList()) + savedJoke
-        }
+        kstore.update { (it ?: emptyList()) + savedJoke }
     }
 
     fun removeJoke(savedJoke: SavedJoke) = screenModelScope.launch {
         _state.update {
             it.copy(savedJokes = it.savedJokes - savedJoke, saved = false)
         }
-        kstore.update {
-            it?.filter { it != savedJoke }
-        }
+        kstore.update { it?.filter { it != savedJoke } }
     }
 
-    init {
-        screenModelScope.launch {
-            val savedJokes = kstore.get()
-            if (savedJokes != null) {
-                _state.update {
-                    it.copy(
-                        savedJokes = savedJokes
-                    )
-                }
-            } else {
-                kstore.set(emptyList())
-            }
-        }
+    private fun loadCardPacksFromFile(fileContent: String): List<CardPack> {
+        val json = Json { ignoreUnknownKeys = true }
+        return json.decodeFromString(fileContent)
     }
-}
 
-@Serializable
-data class SavedJoke(
-    val blackCard: GameScreenModel.BlackCard,
-    val whiteCards: Set<GameScreenModel.WhiteCard>,
-) {
-    val filledIn = generateFilledText(blackCard.text, whiteCards)
+    // Add helper property to access all card packs
+    val cardPacks: List<CardPack> get() = cardDecks
 }
-
-data class GameState(
-    val cardPacks: Set<GameScreenModel.CardPack>,
-    val whiteCards: Set<GameScreenModel.WhiteCard>,
-    val blackCard: GameScreenModel.BlackCard,
-    val blackCardsAvailable: Set<GameScreenModel.BlackCard>,
-    val whiteCardsAvailable: Set<GameScreenModel.WhiteCard>,
-    val roundsDone: Int,
-    val selectedWhiteCards: Set<GameScreenModel.WhiteCard> = emptySet(),
-    val savedJokes: List<SavedJoke> = emptyList(),
-    val saved: Boolean = false
-)

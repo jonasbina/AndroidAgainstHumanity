@@ -22,13 +22,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         installSplashScreen().setKeepOnScreenCondition{false}
         enableEdgeToEdge()
-        super.onCreate(savedInstanceState)
+        val actualSavedState = null // Explicitly ignore saved state
+        super.onCreate(actualSavedState)
         setContent {
+
             var show by remember { mutableStateOf(true) }
-
-
-
-
             CardsAgainstHumanityTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     innerPadding
@@ -37,5 +35,9 @@ class MainActivity : ComponentActivity() {
             }
         }
 
+    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        // Don't save instance state to prevent TransactionTooLargeException
+        super.onSaveInstanceState(Bundle())
     }
 }

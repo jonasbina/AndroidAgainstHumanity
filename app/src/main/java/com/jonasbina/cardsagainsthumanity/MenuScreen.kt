@@ -31,7 +31,7 @@ data class MenuPreferences(
 )
 
 enum class PackSelectionMode {
-    DEFAULT, OFFICIAL, ALL, CUSTOM
+    DEFAULT, OFFICIAL, ALL, CZECH, CUSTOM
 }
 
 class MenuScreen(private val content: String, private val storePath: String, private val savedJokesPath: String) : Screen {
@@ -42,7 +42,7 @@ class MenuScreen(private val content: String, private val storePath: String, pri
         val state by model.state.collectAsState()
         val scope = rememberCoroutineScope()
 
-        var packSelectionMode by remember { mutableStateOf(PackSelectionMode.DEFAULT) }
+        var packSelectionMode by remember { mutableStateOf(state.packSelectionMode) }
         var selectedPackIndices by remember { mutableStateOf(listOf(0)) }
         var expanded by remember { mutableStateOf(false) }
 
@@ -99,11 +99,12 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                                         PackSelectionMode.DEFAULT -> "Default Pack"
                                         PackSelectionMode.OFFICIAL -> "Official Packs"
                                         PackSelectionMode.ALL -> "All Packs"
+                                        PackSelectionMode.CZECH -> "Czech"
                                         PackSelectionMode.CUSTOM -> "Custom Selection"
                                     }
                                 )
                                 Text(
-                                    text = "${state.cardPacks.size} packs selected (${state.whiteCardsAvailable.size + state.blackCardsAvailable.size} cards)",
+                                    text = "${state.selectedPackIndices.size} packs selected (${state.whiteCardsInPlay.size + state.blackCardsInPlay.size} cards)",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -131,18 +132,20 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                                             selected = packSelectionMode == mode,
                                             onClick = {
                                                 packSelectionMode = mode
+                                                model.setPackSeletionMode(mode)
                                                 scope.launch {
                                                     val selectedPacks = when (mode) {
-                                                        PackSelectionMode.DEFAULT -> model.cards.take(
+                                                        PackSelectionMode.DEFAULT -> model.cardPacks.take(
                                                             1
                                                         ).toSet()
-                                                        PackSelectionMode.OFFICIAL -> model.cards.filter { it.official == true }.toSet()
-                                                        PackSelectionMode.ALL -> model.cards.toSet()
-                                                        PackSelectionMode.CUSTOM -> if (selectedPackIndices.isNotEmpty()) selectedPackIndices.map { model.cards[it] }.toSet() else model.cards.take(
+                                                        PackSelectionMode.OFFICIAL -> model.cardPacks.filter { it.official == true }.toSet()
+                                                        PackSelectionMode.ALL -> model.cardPacks.filter { it.name!="Czech" }.toSet()
+                                                        PackSelectionMode.CZECH -> model.cardPacks.filter { it.name=="Czech" }.toSet()
+                                                        PackSelectionMode.CUSTOM -> if (selectedPackIndices.isNotEmpty()) selectedPackIndices.map { model.cardPacks[it] }.toSet() else model.cardPacks.take(
                                                             1
                                                         ).toSet()
                                                     }
-                                                    model.updateCards(selectedPacks)
+                                                    model.updateSelectedPacks(selectedPacks.map { it.black?.firstOrNull()?.pack?:0 }.toSet())
                                                     store.set(
                                                         MenuPreferences(
                                                             mode,
@@ -157,6 +160,7 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                                                 PackSelectionMode.DEFAULT -> "Default Pack Only"
                                                 PackSelectionMode.OFFICIAL -> "Official Packs Only"
                                                 PackSelectionMode.ALL -> "All Packs"
+                                                PackSelectionMode.CZECH -> "Czech"
                                                 PackSelectionMode.CUSTOM -> "Custom Selection"
                                             },
                                             modifier = Modifier.padding(start = 8.dp)
@@ -175,7 +179,7 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                                             .heightIn(max = 200.dp)
                                             .padding(top = 8.dp)
                                     ) {
-                                        items(model.cards.withIndex().toList()) { (index, pack) ->
+                                        items(model.cardPacks.withIndex().toList()) { (index, pack) ->
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -196,8 +200,8 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                                                         }
                                                         scope.launch {
                                                             val selectedPacks =
-                                                                selectedPackIndices.map { model.cards[it] }.toSet()
-                                                            model.updateCards(selectedPacks)
+                                                                selectedPackIndices.map { model.cardPacks[it] }.toSet()
+                                                            model.updateSelectedPacks(selectedPacks.map { it.black?.firstOrNull()?.pack?:0 }.toSet())
                                                             store.set(
                                                                 MenuPreferences(
                                                                     packSelectionMode,

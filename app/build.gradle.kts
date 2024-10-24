@@ -13,8 +13,8 @@ android {
         applicationId = "com.jonasbina.cardsagainsthumanity"
         minSdk = 24
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 6
+        versionName = "1.4.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }

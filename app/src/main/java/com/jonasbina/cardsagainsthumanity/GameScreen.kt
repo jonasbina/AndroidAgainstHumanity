@@ -70,10 +70,12 @@ class GameScreen(private val content: String, private val savedJokesPath: String
                 GameHeader(state.roundsDone)
 
                 Spacer(modifier = Modifier.height(24.dp))
-                AnimatedBlackCard(
-                    blackCard = state.blackCard,
-                    selectedCards = state.selectedWhiteCards
-                )
+                state.currentBlackCard?.let {
+                    AnimatedBlackCard(
+                        blackCard = it,
+                        selectedCards = state.selectedWhiteCards
+                    )
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
 
@@ -92,7 +94,9 @@ class GameScreen(private val content: String, private val savedJokesPath: String
                             fontFamily = inter
                         )
                         state.selectedWhiteCards.forEach { card ->
-                            SelectedWhiteCard(card = card)
+                            SelectedWhiteCard(card = card){
+                                model.unselectWhiteCard(card)
+                            }
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -113,7 +117,7 @@ class GameScreen(private val content: String, private val savedJokesPath: String
                     modifier = Modifier.weight(1f)
                 ) {
                     items(
-                        items = state.whiteCards.toList(),
+                        items = state.currentWhiteCards.toList(),
                         key = { it.text }  // Add an id property to WhiteCard class
                     ) { card ->
                         WhiteCardItem(
@@ -136,17 +140,17 @@ class GameScreen(private val content: String, private val savedJokesPath: String
                     IconButton(onClick = { model.reload() }) {
                         Icon(Icons.Default.Refresh, contentDescription = "Reload")
                     }
-                    AnimatedVisibility(state.blackCard.pick == state.selectedWhiteCards.size) {
+                    AnimatedVisibility(state.currentBlackCard?.pick == state.selectedWhiteCards.size) {
                         Button(onClick = {
                             if (state.saved) {
                                 model.removeJoke(
                                     SavedJoke(
-                                        state.blackCard,
+                                        state.currentBlackCard!!,
                                         state.selectedWhiteCards
                                     )
                                 )
                             } else {
-                                model.addJoke(SavedJoke(state.blackCard, state.selectedWhiteCards))
+                                model.addJoke(SavedJoke(state.currentBlackCard!!, state.selectedWhiteCards))
                             }
                         }) {
                             AnimatedContent(state.saved) {
@@ -162,7 +166,7 @@ class GameScreen(private val content: String, private val savedJokesPath: String
 
 
                 AnimatedNextRoundButton(
-                    enabled = state.selectedWhiteCards.size == state.blackCard.pick,
+                    enabled = state.selectedWhiteCards.size == state.currentBlackCard!!.pick,
                     onClick = { model.newRound() }
                 )
             }
@@ -245,7 +249,7 @@ class GameScreen(private val content: String, private val savedJokesPath: String
     }
 
     @Composable
-    private fun SelectedWhiteCard(card: GameScreenModel.WhiteCard) {
+    private fun SelectedWhiteCard(card: GameScreenModel.WhiteCard, onClick: () -> Unit) {
         var isVisible by remember { mutableStateOf(false) }
         val cornerRadius by animateDpAsState(
             targetValue = if (isVisible) 12.dp else 0.dp,
@@ -267,7 +271,7 @@ class GameScreen(private val content: String, private val savedJokesPath: String
             WhiteCardItem(
                 card = card,
                 selected = true,
-                onClick = {},
+                onClick = onClick,
                 cornerRadius = cornerRadius
             )
         }
