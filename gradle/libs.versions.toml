@@ -31,6 +31,7 @@ voyager-transitions = { group = "cafe.adriel.voyager", name = "voyager-transitio
 voyager-screenmodel = { group = "cafe.adriel.voyager", name = "voyager-screenmodel", version.ref="voyagerVersion" }
 kstore = { module = "io.github.xxfast:kstore", version.ref = "kstore" }
 kstore-file = { module = "io.github.xxfast:kstore-file", version.ref = "kstore" }
+splashscreen = { group ="androidx.core", name = "core-splashscreen", version = "1.0.1" }
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
 kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }

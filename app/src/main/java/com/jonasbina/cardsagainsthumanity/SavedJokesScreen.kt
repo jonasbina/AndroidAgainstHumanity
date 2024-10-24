@@ -1,13 +1,13 @@
 package com.jonasbina.cardsagainsthumanity
 
+import android.util.Log
 import androidx.compose.animation.*
-import androidx.compose.foundation.ExperimentalFoundationApi
+
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material.icons.filled.KeyboardArrowUp
@@ -18,24 +18,9 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
-import cafe.adriel.voyager.core.model.screenModelScope
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
-import io.github.xxfast.kstore.KStore
-import io.github.xxfast.kstore.file.storeOf
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import okio.Path
-import okio.Path.Companion.toPath
-
-data class SavedJokesState(
-    val savedJokes: List<SavedJoke>
-)
-
 class SavedJokesScreen(private val content: String, private val savedJokesPath: String) : Screen {
     @OptIn(ExperimentalMaterial3Api::class)
     @Composable
@@ -89,7 +74,6 @@ class SavedJokesScreen(private val content: String, private val savedJokesPath: 
         }
     }
 
-    @OptIn(ExperimentalFoundationApi::class)
     @Composable
     private fun SavedJokesList(
         jokes: List<SavedJoke>,
@@ -114,7 +98,6 @@ class SavedJokesScreen(private val content: String, private val savedJokesPath: 
         }
     }
 
-    @OptIn(ExperimentalMaterial3Api::class)
     @Composable
     private fun SavedJokeCard(
         joke: SavedJoke,
@@ -128,7 +111,10 @@ class SavedJokesScreen(private val content: String, private val savedJokesPath: 
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
-            )
+            ),
+            onClick ={
+                Log.e("fuck", joke.filledIn)
+            }
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),

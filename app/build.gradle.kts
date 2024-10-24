@@ -13,8 +13,8 @@ android {
         applicationId = "com.jonasbina.cardsagainsthumanity"
         minSdk = 24
         targetSdk = 35
-        versionCode = 7
-        versionName = "1.4.4"
+        versionCode = 9
+        versionName = "1.6"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
@@ -65,5 +65,5 @@ dependencies {
     implementation(libs.kotlinx.serialization.json)
     implementation(libs.kstore)
     implementation(libs.kstore.file)
-    implementation("androidx.core:core-splashscreen:1.0.1")
+    implementation(libs.splashscreen)
 }
