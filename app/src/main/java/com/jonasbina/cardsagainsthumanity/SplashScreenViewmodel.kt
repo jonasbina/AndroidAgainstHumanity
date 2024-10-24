@@ -15,7 +15,7 @@ class SplashScreenViewmodel : ViewModel() {
     init {
         viewModelScope.launch {
             //Delay to simulate some background processsing like fetching data
-            delay(900)
+            delay(1000)
             //After task is done set isLoading to false to hide splash screen
             _isLoading.value = false
         }
