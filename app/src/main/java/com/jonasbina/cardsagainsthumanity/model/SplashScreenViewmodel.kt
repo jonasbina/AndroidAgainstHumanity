@@ -1,4 +1,4 @@
-package com.jonasbina.cardsagainsthumanity
+package com.jonasbina.cardsagainsthumanity.model
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope

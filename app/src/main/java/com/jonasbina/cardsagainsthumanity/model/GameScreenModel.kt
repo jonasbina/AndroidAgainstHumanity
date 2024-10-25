@@ -1,19 +1,19 @@
-package com.jonasbina.cardsagainsthumanity
+package com.jonasbina.cardsagainsthumanity.model
 
-import PackSelectionMode
+import android.content.Context
+import com.jonasbina.cardsagainsthumanity.screen.PackSelectionMode
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
+import com.jonasbina.cardsagainsthumanity.R
+import com.jonasbina.cardsagainsthumanity.screen.generateFilledText
 import io.github.xxfast.kstore.KStore
-import io.github.xxfast.kstore.file.extensions.storeOf
 import io.github.xxfast.kstore.file.storeOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.json.Json
-import okio.Path
 import okio.Path.Companion.toPath
 @Serializable
 data class SavedJoke(
@@ -23,10 +23,10 @@ data class SavedJoke(
     val filledIn = generateFilledText(blackCard.text, whiteCards)
 }
 
-class GameScreenModel(content: String, path: String) : ScreenModel {
+class GameScreenModel(context: Context) : ScreenModel {
     // Keep cards as a private property, not in state
-    private val cardDecks = loadCardPacksFromFile(content)
-    val kstore: KStore<List<SavedJoke>> = storeOf(path.toPath())
+    private val cardDecks = loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString())
+    val kstore: KStore<List<SavedJoke>> = storeOf("${context.dataDir}/jokes.json".toPath())
 
     private val _state = MutableStateFlow(
         GameState(

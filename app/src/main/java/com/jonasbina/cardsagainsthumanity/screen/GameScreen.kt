@@ -1,4 +1,4 @@
-package com.jonasbina.cardsagainsthumanity
+package com.jonasbina.cardsagainsthumanity.screen
 
 import androidx.compose.animation.*
 import androidx.compose.animation.core.*
@@ -11,8 +11,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Refresh
-import androidx.compose.material.icons.filled.Star
-import androidx.compose.material.icons.outlined.Star
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -20,21 +18,19 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.layout.onSizeChanged
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
+import com.jonasbina.cardsagainsthumanity.model.GameScreenModel
+import com.jonasbina.cardsagainsthumanity.R
+import com.jonasbina.cardsagainsthumanity.model.SavedJoke
 import kotlinx.coroutines.launch
-import okio.Path
 
 val inter = FontFamily(
     listOf(
@@ -43,12 +39,13 @@ val inter = FontFamily(
 )
 val lowerCaseEnabled = false
 
-class GameScreen(private val content: String, private val savedJokesPath: String) : Screen {
+class GameScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current!!
+        val context = LocalContext.current
         val model =
-            navigator.rememberNavigatorScreenModel { GameScreenModel(content, savedJokesPath) }
+            navigator.rememberNavigatorScreenModel { GameScreenModel(context) }
         val state by model.state.collectAsState()
         val scope = rememberCoroutineScope()
 

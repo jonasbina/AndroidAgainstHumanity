@@ -1,3 +1,5 @@
+package com.jonasbina.cardsagainsthumanity.screen
+
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -9,19 +11,16 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.vector.addPathNodes
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
-import com.jonasbina.cardsagainsthumanity.GameScreen
-import com.jonasbina.cardsagainsthumanity.GameScreenModel
-import com.jonasbina.cardsagainsthumanity.SavedJokesScreen
+import com.jonasbina.cardsagainsthumanity.model.GameScreenModel
 import io.github.xxfast.kstore.KStore
 import io.github.xxfast.kstore.file.storeOf
 import kotlinx.coroutines.launch
 import kotlinx.serialization.Serializable
-import okio.Path
 import okio.Path.Companion.toPath
 
 @Serializable
@@ -34,20 +33,20 @@ enum class PackSelectionMode {
     DEFAULT, OFFICIAL, ALL, CZECH, CUSTOM
 }
 
-class MenuScreen(private val content: String, private val storePath: String, private val savedJokesPath: String) : Screen {
+class MenuScreen : Screen {
     @Composable
     override fun Content() {
         val navigator = LocalNavigator.current!!
-        val model = navigator.rememberNavigatorScreenModel { GameScreenModel(content,savedJokesPath) }
+        val context = LocalContext.current
+        val model = navigator.rememberNavigatorScreenModel { GameScreenModel(context) }
         val state by model.state.collectAsState()
         val scope = rememberCoroutineScope()
 
         var packSelectionMode by remember { mutableStateOf(state.packSelectionMode) }
         var selectedPackIndices by remember { mutableStateOf(listOf(0)) }
         var expanded by remember { mutableStateOf(false) }
-
         // Load saved preferences
-        val store: KStore<MenuPreferences> = remember { storeOf(storePath.toPath()) }
+        val store: KStore<MenuPreferences> = remember { storeOf("${context.dataDir}/store.json".toPath()) }
         LaunchedEffect(Unit) {
             store.get()?.let { prefs ->
                 selectedPackIndices = prefs.selectedPackIndices
@@ -227,7 +226,7 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { navigator.push(GameScreen(content, savedJokesPath)) },
+                    onClick = { navigator.push(GameScreen()) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -236,7 +235,7 @@ class MenuScreen(private val content: String, private val storePath: String, pri
                 }
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedButton (
-                    onClick = { navigator.push(SavedJokesScreen(content, savedJokesPath)) },
+                    onClick = { navigator.push(SavedJokesScreen()) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)

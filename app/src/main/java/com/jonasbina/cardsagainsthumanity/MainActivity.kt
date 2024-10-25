@@ -1,6 +1,6 @@
 package com.jonasbina.cardsagainsthumanity
 
-import MenuScreen
+import com.jonasbina.cardsagainsthumanity.screen.MenuScreen
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
@@ -12,6 +12,7 @@ import androidx.compose.ui.Modifier
 import androidx.core.splashscreen.SplashScreen.Companion.installSplashScreen
 import cafe.adriel.voyager.navigator.Navigator
 import cafe.adriel.voyager.transitions.FadeTransition
+import com.jonasbina.cardsagainsthumanity.model.SplashScreenViewmodel
 import com.jonasbina.cardsagainsthumanity.ui.theme.CardsAgainstHumanityTheme
 
 class MainActivity : ComponentActivity() {
@@ -26,14 +27,15 @@ class MainActivity : ComponentActivity() {
         super.onCreate(actualSavedState)
         setContent {
             CardsAgainstHumanityTheme {
-                Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    innerPadding
-                    Navigator(MenuScreen(resources.openRawResource(R.raw.cahfull).readBytes().decodeToString(), "$dataDir/store.json","$dataDir/jokes.json")){
+                Scaffold(modifier = Modifier.fillMaxSize()) { a ->
+                    a
+                    Navigator(MenuScreen()){
                         FadeTransition(it)
                     }
                 }
             }
         }
+        applicationContext.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()
 
     }
     override fun onSaveInstanceState(outState: Bundle) {
