@@ -1,10 +1,10 @@
 package com.jonasbina.cardsagainsthumanity.screen
 
-import android.util.Log
 import androidx.compose.animation.*
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.text.selection.SelectionContainer
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
@@ -110,31 +110,27 @@ class SavedJokesScreen : Screen {
     ) {
         var showDeleteDialog by remember { mutableStateOf(false) }
         var expand by remember { mutableStateOf(false) }
+        val filledIn = fillIn(joke.blackCard, joke.whiteCards.toList())
         Card(
             modifier = modifier.fillMaxWidth(),
             elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surface
-            ),
-            onClick ={
-                Log.e("fuck", joke.filledIn)
-            }
+            )
         ) {
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Black card section
-
-
-                // Filled in text
-                Text(
-                    text = joke.filledIn,
-                    style = MaterialTheme.typography.bodyLarge,
-                    color = MaterialTheme.colorScheme.onSurface,
-                    modifier = Modifier.padding(horizontal = 4.dp),
-                    fontFamily = inter
-                )
+                SelectionContainer {
+                    Text(
+                        text = filledIn,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.padding(horizontal = 4.dp),
+                        fontFamily = inter
+                    )
+                }
                 AnimatedVisibility(expand) {
                     Column(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -154,7 +150,6 @@ class SavedJokesScreen : Screen {
                             )
                         }
 
-                        // White cards section
                         Column(
                             verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
@@ -176,7 +171,6 @@ class SavedJokesScreen : Screen {
                         }
                     }
                 }
-                // Delete button
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,

@@ -19,11 +19,16 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.AnnotatedString
+import androidx.compose.ui.text.SpanStyle
+import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.Font
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
 import cafe.adriel.voyager.core.screen.Screen
 import cafe.adriel.voyager.navigator.LocalNavigator
@@ -37,7 +42,7 @@ val inter = FontFamily(
         Font(R.font.inter_regular)
     )
 )
-val lowerCaseEnabled = false
+const val lowerCaseEnabled = false
 
 class GameScreen : Screen {
     @Composable
@@ -48,7 +53,122 @@ class GameScreen : Screen {
             navigator.rememberNavigatorScreenModel { GameScreenModel(context) }
         val state by model.state.collectAsState()
         val scope = rememberCoroutineScope()
+        Crossfade(targetState = state.loaded, label = "") { isLoaded ->
+            if (isLoaded) {
+                Scaffold { padding ->
+                    val pd = PaddingValues(
+                        start = 16.dp,
+                        top = padding.calculateTopPadding(),
+                        end = 16.dp,
+                        bottom = padding.calculateBottomPadding()
+                    )
 
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .background(MaterialTheme.colorScheme.background)
+                            .verticalScroll(rememberScrollState())
+                            .padding(pd)
+                    ) {
+                        GameHeader(state.roundsDone)
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        state.currentBlackCard?.let {
+                            AnimatedBlackCard(
+                                blackCard = it,
+                                selectedCards = state.selectedWhiteCards,
+                            )
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text(
+                            text = "Your Cards",
+                            style = MaterialTheme.typography.titleMedium,
+                            color = MaterialTheme.colorScheme.onBackground,
+                            modifier = Modifier.padding(bottom = 8.dp),
+                            fontFamily = inter
+                        )
+
+                        LazyVerticalGrid(
+                            columns = GridCells.Adaptive(minSize = 160.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            items(
+                                items = state.currentWhiteCards.toList(),
+                                key = { it.text }
+                            ) { card ->
+                                WhiteCardItem(
+                                    card = card,
+                                    selected = card in state.selectedWhiteCards,
+                                    onClick = {
+                                        if (card in state.selectedWhiteCards) {
+                                            scope.launch {
+                                                model.unselectWhiteCard(card)
+                                            }
+                                        } else {
+                                            scope.launch {
+                                                model.selectWhiteCard(card)
+                                            }
+                                        }
+                                    },
+                                    modifier = Modifier.animateItem()
+                                )
+                            }
+                        }
+                        Row(
+                            Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            IconButton(onClick = { model.reload() }) {
+                                Icon(Icons.Default.Refresh, contentDescription = "Reload")
+                            }
+                            AnimatedVisibility(state.currentBlackCard?.pick == state.selectedWhiteCards.size) {
+                                Button(onClick = {
+                                    if (state.saved) {
+                                        model.removeJoke(
+                                            SavedJoke(
+                                                state.currentBlackCard!!,
+                                                state.selectedWhiteCards
+                                            )
+                                        )
+                                    } else {
+                                        model.addJoke(
+                                            SavedJoke(
+                                                state.currentBlackCard!!,
+                                                state.selectedWhiteCards
+                                            )
+                                        )
+                                    }
+                                }) {
+                                    AnimatedContent(state.saved, label = "") {
+                                        Text(
+                                            if (it) "Remove from saved" else "Save",
+                                            fontFamily = inter
+                                        )
+                                    }
+                                }
+                            }
+
+                        }
+
+
+                        AnimatedNextRoundButton(
+                            enabled = state.selectedWhiteCards.size == state.currentBlackCard!!.pick,
+                            onClick = { model.newRound() }
+                        )
+                    }
+                }
+            } else {
+                SkeletonLoader()
+            }
+        }
+    }
+
+    @Composable
+    private fun SkeletonLoader() {
         Scaffold { padding ->
             val pd = PaddingValues(
                 start = 16.dp,
@@ -64,41 +184,21 @@ class GameScreen : Screen {
                     .verticalScroll(rememberScrollState())
                     .padding(pd)
             ) {
-                GameHeader(state.roundsDone)
-
-                Spacer(modifier = Modifier.height(24.dp))
-                state.currentBlackCard?.let {
-                    AnimatedBlackCard(
-                        blackCard = it,
-                        selectedCards = state.selectedWhiteCards
-                    )
-                }
+                GameHeader(0)
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // Selected white cards section with animations
-                AnimatedVisibility(
-                    visible = state.selectedWhiteCards.isNotEmpty(),
-                    enter = fadeIn() + expandVertically(),
-                    exit = fadeOut() + shrinkVertically()
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        Text(
-                            text = "Selected Cards",
-                            style = MaterialTheme.typography.titleMedium,
-                            color = MaterialTheme.colorScheme.onBackground,
-                            modifier = Modifier.padding(bottom = 8.dp),
-                            fontFamily = inter
-                        )
-                        state.selectedWhiteCards.forEach { card ->
-                            SelectedWhiteCard(card = card){
-                                model.unselectWhiteCard(card)
-                            }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                    }
-                }
+                AnimatedBlackCard(
+                    blackCard = GameScreenModel.BlackCard(
+                        "Hold on a second, we're loading the game for you",
+                        1,
+                        0
+                    ),
+                    selectedCards = emptySet(),
+                )
 
+
+                Spacer(modifier = Modifier.height(24.dp))
                 Text(
                     text = "Your Cards",
                     style = MaterialTheme.typography.titleMedium,
@@ -114,17 +214,26 @@ class GameScreen : Screen {
                     modifier = Modifier.weight(1f)
                 ) {
                     items(
-                        items = state.currentWhiteCards.toList(),
-                        key = { it.text }  // Add an id property to WhiteCard class
+                        items = listOf(
+                            GameScreenModel.WhiteCard("Loading", 0),
+                            GameScreenModel.WhiteCard("The game", 0),
+                            GameScreenModel.WhiteCard("For you", 0),
+                            GameScreenModel.WhiteCard("Hang", 0),
+                            GameScreenModel.WhiteCard(
+                                "On", 0
+                            ),
+                            GameScreenModel.WhiteCard("For a second", 0),
+                            GameScreenModel.WhiteCard("There", 0),
+                            GameScreenModel.WhiteCard("Mate", 0),
+                            GameScreenModel.WhiteCard("Thanks", 0),
+                            GameScreenModel.WhiteCard("For patience.", 0)
+                        ),
+                        key = { it.text }
                     ) { card ->
                         WhiteCardItem(
                             card = card,
-                            selected = card in state.selectedWhiteCards,
-                            onClick = {
-                                scope.launch {
-                                    model.selectWhiteCard(card)
-                                }
-                            },
+                            selected = false,
+                            onClick = {},
                             modifier = Modifier.animateItem()
                         )
                     }
@@ -134,41 +243,21 @@ class GameScreen : Screen {
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    IconButton(onClick = { model.reload() }) {
+                    IconButton(onClick = {}) {
                         Icon(Icons.Default.Refresh, contentDescription = "Reload")
-                    }
-                    AnimatedVisibility(state.currentBlackCard?.pick == state.selectedWhiteCards.size) {
-                        Button(onClick = {
-                            if (state.saved) {
-                                model.removeJoke(
-                                    SavedJoke(
-                                        state.currentBlackCard!!,
-                                        state.selectedWhiteCards
-                                    )
-                                )
-                            } else {
-                                model.addJoke(SavedJoke(state.currentBlackCard!!, state.selectedWhiteCards))
-                            }
-                        }) {
-                            AnimatedContent(state.saved) {
-                                Text(
-                                    if (it) "Remove from saved" else "Save",
-                                    fontFamily = inter
-                                )
-                            }
-                        }
                     }
 
                 }
 
 
                 AnimatedNextRoundButton(
-                    enabled = state.selectedWhiteCards.size == state.currentBlackCard!!.pick,
-                    onClick = { model.newRound() }
+                    enabled = false,
+                    onClick = { }
                 )
             }
         }
     }
+
 
     @Composable
     private fun GameHeader(roundsDone: Int) {
@@ -189,10 +278,10 @@ class GameScreen : Screen {
 
     @Composable
     private fun AnimatedCounter(count: Int) {
-        var oldCount by remember { mutableStateOf(count) }
+        var oldCount by remember { mutableIntStateOf(count) }
         val animatedCount by animateIntAsState(
             targetValue = count,
-            animationSpec = tween(durationMillis = 500, easing = FastOutSlowInEasing)
+            animationSpec = tween(durationMillis = 100, easing = FastOutSlowInEasing), label = ""
         )
 
         LaunchedEffect(count) {
@@ -210,12 +299,14 @@ class GameScreen : Screen {
     @Composable
     private fun AnimatedBlackCard(
         blackCard: GameScreenModel.BlackCard,
-        selectedCards: Set<GameScreenModel.WhiteCard>
+        selectedCards: Set<GameScreenModel.WhiteCard>,
+        modifier: Modifier = Modifier
     ) {
         Card(
-            modifier = Modifier
+            modifier = modifier
                 .fillMaxWidth()
-                .padding(8.dp),
+                .padding(8.dp)
+                .animateContentSize(),
             colors = CardDefaults.cardColors(
                 containerColor = Color.Black,
                 contentColor = Color.White
@@ -225,10 +316,8 @@ class GameScreen : Screen {
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                val filledText = remember(blackCard.text, selectedCards) {
-                    generateFilledText(blackCard.text, selectedCards)
-                }
-
+                val filledText =
+                    fillIn(blackCard, selectedCards.toList())
                 Text(
                     text = filledText,
                     style = MaterialTheme.typography.bodyLarge,
@@ -246,35 +335,6 @@ class GameScreen : Screen {
     }
 
     @Composable
-    private fun SelectedWhiteCard(card: GameScreenModel.WhiteCard, onClick: () -> Unit) {
-        var isVisible by remember { mutableStateOf(false) }
-        val cornerRadius by animateDpAsState(
-            targetValue = if (isVisible) 12.dp else 0.dp,
-            animationSpec = tween(
-                durationMillis = 300,
-                easing = FastOutSlowInEasing
-            )
-        )
-
-        LaunchedEffect(Unit) {
-            isVisible = true
-        }
-
-        AnimatedVisibility(
-            visible = isVisible,
-            enter = fadeIn() + expandHorizontally() + slideInHorizontally(),
-            exit = fadeOut() + shrinkHorizontally() + slideOutHorizontally()
-        ) {
-            WhiteCardItem(
-                card = card,
-                selected = true,
-                onClick = onClick,
-                cornerRadius = cornerRadius
-            )
-        }
-    }
-
-    @Composable
     private fun WhiteCardItem(
         card: GameScreenModel.WhiteCard,
         selected: Boolean,
@@ -283,39 +343,68 @@ class GameScreen : Screen {
         modifier: Modifier = Modifier
     ) {
         val scale by animateFloatAsState(
-            targetValue = if (selected) 1.05f else 1f,
+            targetValue = if (selected) 1f else 0.95f,
             animationSpec = spring(
                 dampingRatio = Spring.DampingRatioMediumBouncy,
                 stiffness = Spring.StiffnessLow
-            )
+            ), label = ""
+        )
+        val textStyle = MaterialTheme.typography.bodyMedium.let { baseStyle ->
+            when {
+                card.text.length <= 15 -> baseStyle.copy(fontSize = 18.sp)
+                card.text.length <= 30 -> baseStyle.copy(fontSize = 16.sp)
+                card.text.length <= 50 -> baseStyle.copy(fontSize = 14.sp)
+                else -> baseStyle
+            }
+        }
+
+        val surface = MaterialTheme.colorScheme.surface
+        val primary = MaterialTheme.colorScheme.primaryContainer
+        val targetColor = if (selected) primary else surface
+        val targetElevation = if (selected) 16.dp else 8.dp
+        val animatedColor by animateColorAsState(
+            targetValue = targetColor,
+            animationSpec = tween(
+                durationMillis = 300,
+                easing = FastOutSlowInEasing
+            ), label = ""
+        )
+        val animatedElevation by animateDpAsState(
+            targetValue = targetElevation,
+            animationSpec = tween(
+                durationMillis = 300,
+                easing = FastOutSlowInEasing
+            ), label = ""
         )
 
-        Card(
+        val lineHeight = MaterialTheme.typography.bodyMedium.lineHeight
+        val minCardHeight =
+            (lineHeight.value * 2.5).dp
+
+        ElevatedCard(
             modifier = modifier
                 .fillMaxWidth()
                 .scale(scale)
                 .clip(RoundedCornerShape(cornerRadius))
                 .clickable(onClick = onClick),
             colors = CardDefaults.cardColors(
-                containerColor = if (selected)
-                    MaterialTheme.colorScheme.primaryContainer
-                else
-                    MaterialTheme.colorScheme.surface
+                containerColor = animatedColor
             ),
             elevation = CardDefaults.cardElevation(
-                defaultElevation = if (selected) 8.dp else 4.dp
+                defaultElevation = animatedElevation
             ),
-            shape = RoundedCornerShape(cornerRadius)
+            shape = RoundedCornerShape(cornerRadius),
         ) {
             Box(
                 modifier = Modifier
-                    .fillMaxSize()
-                    .padding(12.dp),
+                    .fillMaxWidth()
+                    .padding(12.dp)
+                    .defaultMinSize(minHeight = minCardHeight),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
                     text = card.text,
-                    style = MaterialTheme.typography.bodyMedium,
+                    style = textStyle,
                     textAlign = TextAlign.Center,
                     color = if (selected)
                         MaterialTheme.colorScheme.onPrimaryContainer
@@ -336,7 +425,7 @@ class GameScreen : Screen {
             targetValue = if (enabled)
                 MaterialTheme.colorScheme.primary
             else
-                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f)
+                MaterialTheme.colorScheme.onSurface.copy(alpha = 0.12f), label = ""
         )
 
         Button(
@@ -357,21 +446,113 @@ class GameScreen : Screen {
     }
 }
 
-fun generateFilledText(
-    originalText: String,
-    selectedCards: Set<GameScreenModel.WhiteCard>
-): String {
-    var filledText = originalText
-    selectedCards.forEachIndexed { index, card ->
-        var cardText = card.text
-        cardText = if (cardText.last() == '.') cardText.dropLast(1) else cardText
-        if (!filledText.startsWith("_") && lowerCaseEnabled) {
-            cardText = cardText.first().lowercase() + cardText.drop(1)
+fun fillIn(
+    blackCard: GameScreenModel.BlackCard,
+    selectedCards: List<GameScreenModel.WhiteCard>
+): AnnotatedString {
+    return buildAnnotatedString {
+        if (blackCard.text.count { it == '_' } == 0 && selectedCards.size == 1) {
+            withStyle(style = SpanStyle(color = Color.White)) {
+                append(blackCard.text.trimEnd())
+                append(" ")
+            }
+            withStyle(style = SpanStyle(color = Color.Green)) {
+                append(selectedCards[0].text)
+            }
+            return@buildAnnotatedString
         }
-        filledText = filledText.replaceFirst("_", cardText)
+        if (blackCard.text.count { it == '_' } == 0 && selectedCards.size > 1) {
+            withStyle(style = SpanStyle(color = Color.White)) {
+                append(blackCard.text.trimEnd())
+                append(" ")
+            }
+            withStyle(style = SpanStyle(color = Color.Green)) {
+                selectedCards.forEachIndexed { index, card ->
+                    var cardText = card.text
+                    val isLast = index == selectedCards.size - 1
+                    cardText =
+                        if (cardText.last() == '.' && !isLast) cardText.dropLast(1) else cardText
+                    if (!isLast) {
+                        cardText += ", "
+                    }
+                    append(cardText)
+                }
+
+            }
+            return@buildAnnotatedString
+        }
+
+        var tempText = blackCard.text
+        selectedCards.forEach {card ->
+            var cardText = card.text
+            cardText = if (cardText.last() == '.') cardText.dropLast(1) else cardText
+            if (!tempText.startsWith("_") && lowerCaseEnabled) {
+                cardText = cardText.first().lowercase() + cardText.drop(1)
+            }
+            val splitText = tempText.split("_", limit = 2)
+            if (splitText.isNotEmpty()) {
+                withStyle(style = SpanStyle(color = Color.White)) {
+                    append(splitText[0])
+                }
+                withStyle(style = SpanStyle(color = Color.Green)) {
+                    append(cardText)
+                }
+                tempText = if (splitText.size > 1) splitText[1] else ""
+            }
+        }
+        if (tempText.isNotEmpty()) {
+            withStyle(style = SpanStyle(color = Color.White)) {
+                append(tempText)
+            }
+        }
     }
-    if (originalText.count { it == '_' } == 0 && selectedCards.size == 1) {
-        filledText += (" " + selectedCards.toList()[0].text)
-    }
-    return filledText
 }
+//                AnimatedVisibility(
+//                    visible = state.selectedWhiteCards.isNotEmpty(),
+//                    enter = fadeIn() + expandVertically(),
+//                    exit = fadeOut() + shrinkVertically()
+//                ) {
+//                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+//                        Text(
+//                            text = "Selected Cards",
+//                            style = MaterialTheme.typography.titleMedium,
+//                            color = MaterialTheme.colorScheme.onBackground,
+//                            modifier = Modifier.padding(bottom = 8.dp),
+//                            fontFamily = inter
+//                        )
+//                        state.selectedWhiteCards.forEach { card ->
+//                            SelectedWhiteCard(card = card) {
+//                                model.unselectWhiteCard(card)
+//                            }
+//                        }
+//                        Spacer(modifier = Modifier.height(16.dp))
+//                    }
+//                }
+//@Composable
+//    private fun SelectedWhiteCard(card: GameScreenModel.WhiteCard, onClick: () -> Unit) {
+//        var isVisible by remember { mutableStateOf(false) }
+//        val cornerRadius by animateDpAsState(
+//            targetValue = if (isVisible) 12.dp else 0.dp,
+//            animationSpec = tween(
+//                durationMillis = 300,
+//                easing = FastOutSlowInEasing
+//            ), label = ""
+//        )
+//
+//        LaunchedEffect(Unit) {
+//            isVisible = true
+//        }
+//
+//        AnimatedVisibility(
+//            visible = isVisible,
+//            enter = fadeIn() + expandHorizontally() + slideInHorizontally(),
+//            exit = fadeOut() + shrinkHorizontally() + slideOutHorizontally()
+//        ) {
+//            WhiteCardItem(
+//                card = card,
+//                selected = true,
+//                onClick = onClick,
+//                cornerRadius = cornerRadius
+//            )
+//        }
+//    }

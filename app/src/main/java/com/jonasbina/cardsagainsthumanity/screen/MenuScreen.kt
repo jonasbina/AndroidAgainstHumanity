@@ -1,6 +1,8 @@
 package com.jonasbina.cardsagainsthumanity.screen
 
 import androidx.compose.animation.*
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -11,6 +13,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
@@ -30,7 +33,7 @@ data class MenuPreferences(
 )
 
 enum class PackSelectionMode {
-    DEFAULT, OFFICIAL, ALL, CZECH, CUSTOM
+    DEFAULT, OFFICIAL, ALL, CZECH, ITALIAN, CUSTOM
 }
 
 class MenuScreen : Screen {
@@ -45,19 +48,11 @@ class MenuScreen : Screen {
         var packSelectionMode by remember { mutableStateOf(state.packSelectionMode) }
         var selectedPackIndices by remember { mutableStateOf(listOf(0)) }
         var expanded by remember { mutableStateOf(false) }
-        // Load saved preferences
-        val store: KStore<MenuPreferences> = remember { storeOf("${context.dataDir}/store.json".toPath()) }
+        val store: KStore<MenuPreferences> =
+            remember { storeOf("${context.dataDir}/store.json".toPath()) }
         LaunchedEffect(Unit) {
             store.get()?.let { prefs ->
                 selectedPackIndices = prefs.selectedPackIndices
-                // Apply saved pack selection
-//                val selectedPacks = when (prefs.packSelectionMode) {
-//                    PackSelectionMode.DEFAULT -> model.cards.take(1).toSet()
-//                    PackSelectionMode.OFFICIAL -> model.cards.filter { it.official == true }.toSet()
-//                    PackSelectionMode.ALL -> model.cards.toSet()
-//                    PackSelectionMode.CUSTOM -> prefs.selectedPackIndices.map { model.cards[it] }.toSet()
-//                }
-//                model.updateCards(selectedPacks)
             }
         }
 
@@ -81,8 +76,8 @@ class MenuScreen : Screen {
                 )
 
                 Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    onClick = { expanded = !expanded }
+                    modifier = Modifier.fillMaxWidth().clickable(interactionSource = remember { MutableInteractionSource() }, indication = null) { expanded = !expanded },
+//                    onClick = { expanded = !expanded }
                 ) {
                     Column(modifier = Modifier.padding(16.dp)) {
                         Row(
@@ -99,11 +94,12 @@ class MenuScreen : Screen {
                                         PackSelectionMode.OFFICIAL -> "Official Packs"
                                         PackSelectionMode.ALL -> "All Packs"
                                         PackSelectionMode.CZECH -> "Czech"
+                                        PackSelectionMode.ITALIAN -> "Italian"
                                         PackSelectionMode.CUSTOM -> "Custom Selection"
                                     }
                                 )
                                 Text(
-                                    text = "${state.selectedPackIndices.size} packs selected (${state.whiteCardsInPlay.size + state.blackCardsInPlay.size} cards)",
+                                    text = "${state.selectedPackIndices.size} packs selected",
                                     style = MaterialTheme.typography.bodySmall
                                 )
                             }
@@ -120,7 +116,7 @@ class MenuScreen : Screen {
                             exit = fadeOut() + shrinkVertically()
                         ) {
                             Column(modifier = Modifier.padding(top = 16.dp)) {
-                                PackSelectionMode.values().forEach { mode ->
+                                PackSelectionMode.entries.filter { if (!state.czech&&!state.italian) it!=PackSelectionMode.CZECH&&it!=PackSelectionMode.ITALIAN else if (!state.czech) it != PackSelectionMode.CZECH else if (!state.italian) it!=PackSelectionMode.ITALIAN else true }.forEach { mode ->
                                     Row(
                                         modifier = Modifier
                                             .fillMaxWidth()
@@ -134,17 +130,28 @@ class MenuScreen : Screen {
                                                 model.setPackSeletionMode(mode)
                                                 scope.launch {
                                                     val selectedPacks = when (mode) {
-                                                        PackSelectionMode.DEFAULT -> model.cardPacks.take(
+                                                        PackSelectionMode.DEFAULT -> state.cardPreviews.take(
                                                             1
                                                         ).toSet()
-                                                        PackSelectionMode.OFFICIAL -> model.cardPacks.filter { it.official == true }.toSet()
-                                                        PackSelectionMode.ALL -> model.cardPacks.filter { it.name!="Czech" }.toSet()
-                                                        PackSelectionMode.CZECH -> model.cardPacks.filter { it.name=="Czech" }.toSet()
-                                                        PackSelectionMode.CUSTOM -> if (selectedPackIndices.isNotEmpty()) selectedPackIndices.map { model.cardPacks[it] }.toSet() else model.cardPacks.take(
+
+                                                        PackSelectionMode.OFFICIAL -> state.cardPreviews.filter { it.official }
+                                                            .toSet()
+
+                                                        PackSelectionMode.ALL -> state.cardPreviews.filter { it.isEnglish }
+                                                            .toSet()
+
+                                                        PackSelectionMode.CZECH -> state.cardPreviews.filter { it.name == "Czech" }
+                                                            .toSet()
+                                                        PackSelectionMode.ITALIAN -> state.cardPreviews.filter { it.name == "Italian" }
+                                                            .toSet()
+                                                        PackSelectionMode.CUSTOM -> if (selectedPackIndices.isNotEmpty()) selectedPackIndices.map { state.cardPreviews[it] }
+                                                            .toSet() else state.cardPreviews.take(
                                                             1
                                                         ).toSet()
                                                     }
-                                                    model.updateSelectedPacks(selectedPacks.map { it.black?.firstOrNull()?.pack?:0 }.toSet())
+                                                    model.updateSelectedPacks(selectedPacks.map {
+                                                        it.id
+                                                    }.toSet())
                                                     store.set(
                                                         MenuPreferences(
                                                             mode,
@@ -158,12 +165,25 @@ class MenuScreen : Screen {
                                             text = when (mode) {
                                                 PackSelectionMode.DEFAULT -> "Default Pack Only"
                                                 PackSelectionMode.OFFICIAL -> "Official Packs Only"
-                                                PackSelectionMode.ALL -> "All Packs"
+                                                PackSelectionMode.ALL -> "All Packs (Only english)"
                                                 PackSelectionMode.CZECH -> "Czech"
+                                                PackSelectionMode.ITALIAN -> "Italian"
                                                 PackSelectionMode.CUSTOM -> "Custom Selection"
                                             },
                                             modifier = Modifier.padding(start = 8.dp)
                                         )
+                                        AnimatedVisibility(visible = packSelectionMode == PackSelectionMode.CUSTOM&&mode==PackSelectionMode.CUSTOM) {
+                                            TextButton(onClick = {
+                                                selectedPackIndices = emptyList()
+                                                scope.launch {
+                                                    val selectedPacks = state.cardPreviews.take(1).toSet()
+                                                    model.updateSelectedPacks(selectedPacks.map { it.id }.toSet())
+                                                    store.set(MenuPreferences(packSelectionMode, selectedPackIndices))
+                                                }
+                                            }) {
+                                                Text("Clear", color = Color.Red)
+                                            }
+                                        }
                                     }
                                 }
 
@@ -178,7 +198,9 @@ class MenuScreen : Screen {
                                             .heightIn(max = 200.dp)
                                             .padding(top = 8.dp)
                                     ) {
-                                        items(model.cardPacks.withIndex().toList()) { (index, pack) ->
+                                        items(
+                                            state.cardPreviews.withIndex().toList()
+                                        ) { (index, pack) ->
                                             Row(
                                                 modifier = Modifier
                                                     .fillMaxWidth()
@@ -194,13 +216,15 @@ class MenuScreen : Screen {
                                                             if (selectedPackIndices.size > 1) {
                                                                 selectedPackIndices - index
                                                             } else {
-                                                                selectedPackIndices
+                                                                emptyList()
                                                             }
                                                         }
+
                                                         scope.launch {
                                                             val selectedPacks =
-                                                                selectedPackIndices.map { model.cardPacks[it] }.toSet()
-                                                            model.updateSelectedPacks(selectedPacks.map { it.black?.firstOrNull()?.pack?:0 }.toSet())
+                                                                selectedPackIndices.map { state.cardPreviews[it] }
+                                                                    .toSet()
+                                                            model.updateSelectedPacks(selectedPacks.map{it.id}.toSet())
                                                             store.set(
                                                                 MenuPreferences(
                                                                     packSelectionMode,
@@ -208,10 +232,17 @@ class MenuScreen : Screen {
                                                                 )
                                                             )
                                                         }
+                                                        if (selectedPackIndices.isEmpty()) {
+                                                            scope.launch {
+                                                                val selectedPacks = state.cardPreviews.take(1).toSet()
+                                                                model.updateSelectedPacks(selectedPacks.map { it.id }.toSet())
+                                                                store.set(MenuPreferences(packSelectionMode, selectedPackIndices))
+                                                            }
+                                                        }
                                                     }
                                                 )
                                                 Text(
-                                                    text = pack.name ?: "Pack ${index + 1}",
+                                                    text = pack.name,
                                                     modifier = Modifier.padding(start = 8.dp)
                                                 )
                                             }
@@ -226,7 +257,7 @@ class MenuScreen : Screen {
                 Spacer(modifier = Modifier.height(32.dp))
 
                 Button(
-                    onClick = { navigator.push(GameScreen()) },
+                    onClick = { model.startGame();navigator.push(GameScreen()) },
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
@@ -234,13 +265,30 @@ class MenuScreen : Screen {
                     Text("Play")
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                OutlinedButton (
-                    onClick = { navigator.push(SavedJokesScreen()) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp)
+
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly
                 ) {
-                    Text("See saved plays")
+                    OutlinedButton(
+                        onClick = { navigator.push(SavedJokesScreen()) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        Text("Saved plays")
+                    }
+
+                    Spacer(modifier = Modifier.width(16.dp))
+
+                    OutlinedButton(
+                        onClick = { navigator.push(SettingsScreen()) },
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp)
+                    ) {
+                        Text("More languages")
+                    }
                 }
             }
         }

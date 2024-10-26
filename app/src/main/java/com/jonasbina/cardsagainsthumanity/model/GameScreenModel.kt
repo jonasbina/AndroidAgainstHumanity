@@ -5,8 +5,8 @@ import com.jonasbina.cardsagainsthumanity.screen.PackSelectionMode
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.jonasbina.cardsagainsthumanity.R
-import com.jonasbina.cardsagainsthumanity.screen.generateFilledText
 import io.github.xxfast.kstore.KStore
+import io.github.xxfast.kstore.extensions.get
 import io.github.xxfast.kstore.file.storeOf
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -19,35 +19,42 @@ import okio.Path.Companion.toPath
 data class SavedJoke(
     val blackCard: GameScreenModel.BlackCard,
     val whiteCards: Set<GameScreenModel.WhiteCard>,
-) {
-    val filledIn = generateFilledText(blackCard.text, whiteCards)
-}
+)
 
 class GameScreenModel(context: Context) : ScreenModel {
-    // Keep cards as a private property, not in state
-    private val cardDecks = loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString())
-    val kstore: KStore<List<SavedJoke>> = storeOf("${context.dataDir}/jokes.json".toPath())
-
+    private val sharedPreferencesManager = SharedPreferencesManager(context)
+    private val kstore: KStore<List<SavedJoke>> = storeOf("${context.dataDir}/jokes.json".toPath())
+    private val cardPackPreviewStore:KStore<List<CardPackPreview>> = storeOf("${context.dataDir}/cardPackPreviews.json".toPath())
+    private val cardsStore: KStore<List<CardPack>> = storeOf("${context.dataDir}/cards.json".toPath())
     private val _state = MutableStateFlow(
         GameState(
-            // Store minimal initial state
             selectedPackIndices = setOf(0),
             currentWhiteCards = emptySet(),
             currentBlackCard = null,
             blackCardsInPlay = emptySet(),
             whiteCardsInPlay = emptySet(),
             roundsDone = 0,
-            packSelectionMode = PackSelectionMode.DEFAULT
+            packSelectionMode = PackSelectionMode.DEFAULT,
+            cardPreviews = emptyList()
         )
     )
     val state = _state.asStateFlow()
 
     @Serializable
     data class CardPack(
-        val name: String?,
-        val official: Boolean?,
-        val white: Set<WhiteCard>?,
-        val black: Set<BlackCard>?
+        val name: String,
+        val official: Boolean,
+        val white: Set<WhiteCard>,
+        val black: Set<BlackCard>,
+        val isEnglish:Boolean,
+        val id:Int
+    )
+    @Serializable
+    data class CardPackPreview(
+        val name: String,
+        val official: Boolean,
+        val isEnglish: Boolean,
+        val id:Int
     )
 
     @Serializable
@@ -73,18 +80,36 @@ class GameScreenModel(context: Context) : ScreenModel {
         val selectedWhiteCards: Set<WhiteCard> = emptySet(),
         val savedJokes: List<SavedJoke> = emptyList(),
         val saved: Boolean = false,
-        val packSelectionMode: PackSelectionMode
+        val packSelectionMode: PackSelectionMode,
+        val cardPreviews:List<CardPackPreview>,
+        val italian:Boolean = false,
+        val czech:Boolean = false,
+        val loaded:Boolean = false
     ) {
-        // Add computed properties to get available cards based on selected packs
         val availableWhiteCards: Set<WhiteCard> get() = whiteCardsInPlay
         val availableBlackCards: Set<BlackCard> get() = blackCardsInPlay
     }
 
     init {
-        // Initialize the game with first pack
+        screenModelScope.launch {
+            if (cardPackPreviewStore.get(0)==null){
+                cardPackPreviewStore.set(loadCardPackPreviewsFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()))
+            }
+            _state.update {
+                it.copy(cardPreviews = cardPackPreviewStore.get()?:it.cardPreviews)
+            }
+        }
         updateSelectedPacks(setOf(0))
-
-        // Load saved jokes
+        screenModelScope.launch {
+            if (cardsStore.get(0)==null){
+                cardsStore.set(loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()))
+            }
+        }
+        val czech = sharedPreferencesManager.loadBoolean("czech",false)
+        val italian = sharedPreferencesManager.loadBoolean("italian",false)
+        _state.update {
+            it.copy(czech = czech,italian = italian)
+        }
         screenModelScope.launch {
             val savedJokes = kstore.get()
             if (savedJokes != null) {
@@ -123,7 +148,7 @@ class GameScreenModel(context: Context) : ScreenModel {
         val state = state.value
         if (state.selectedWhiteCards.contains(whiteCard)) return
 
-        if (state.selectedWhiteCards.size == state.currentBlackCard?.pick ?: 0) {
+        if (state.selectedWhiteCards.size == (state.currentBlackCard?.pick ?: 0)) {
             _state.update { it.copy(selectedWhiteCards = emptySet()) }
         }
 
@@ -145,22 +170,42 @@ class GameScreenModel(context: Context) : ScreenModel {
     }
 
     fun updateSelectedPacks(selectedIndices: Set<Int>) {
-        // Get all cards from selected packs
-        val selectedPacks = selectedIndices.map { cardDecks[it] }
-        val allWhiteCards = selectedPacks.flatMap { it.white ?: emptySet() }.toSet()
-        val allBlackCards = selectedPacks.flatMap { it.black ?: emptySet() }.toSet()
-
-        // Initialize the game state with new cards
         _state.update {
             it.copy(
                 selectedPackIndices = selectedIndices,
+                roundsDone = 0,
+                selectedWhiteCards = emptySet(),
+                saved = false
+            )
+        }
+    }
+    fun setCzech(czech:Boolean){
+        _state.update {
+            it.copy(czech = czech)
+        }
+    }
+    fun setItalian(italian:Boolean){
+        _state.update {
+            it.copy(italian = italian)
+        }
+    }
+    fun startGame() = screenModelScope.launch {
+        _state.update {
+            it.copy(loaded = false)
+        }
+        val selectedPacks = state.value.selectedPackIndices.map { cardsStore.get(it) }
+        val allWhiteCards = selectedPacks.flatMap { it?.white ?: emptySet() }.toSet()
+        val allBlackCards = selectedPacks.flatMap { it?.black ?: emptySet() }.toSet()
+        _state.update {
+            it.copy(
                 currentWhiteCards = allWhiteCards.shuffled().take(10).toSet(),
                 currentBlackCard = allBlackCards.random(),
                 blackCardsInPlay = allBlackCards,
                 whiteCardsInPlay = allWhiteCards,
                 roundsDone = 0,
                 selectedWhiteCards = emptySet(),
-                saved = false
+                saved = false,
+                loaded = true
             )
         }
     }
@@ -176,14 +221,15 @@ class GameScreenModel(context: Context) : ScreenModel {
         _state.update {
             it.copy(savedJokes = it.savedJokes - savedJoke, saved = false)
         }
-        kstore.update { it?.filter { it != savedJoke } }
+        kstore.update { savedJokes -> savedJokes?.filter { it != savedJoke } }
     }
 
     private fun loadCardPacksFromFile(fileContent: String): List<CardPack> {
         val json = Json { ignoreUnknownKeys = true }
         return json.decodeFromString(fileContent)
     }
-
-    // Add helper property to access all card packs
-    val cardPacks: List<CardPack> get() = cardDecks
+    private fun loadCardPackPreviewsFromFile(fileContent: String): List<CardPackPreview> {
+        val json = Json { ignoreUnknownKeys = true }
+        return json.decodeFromString(fileContent)
+    }
 }
