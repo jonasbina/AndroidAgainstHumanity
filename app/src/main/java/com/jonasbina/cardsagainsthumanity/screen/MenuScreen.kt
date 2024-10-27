@@ -227,11 +227,11 @@ class MenuScreen : Screen {
                                                     ) {
                                                         OutlinedTextField(
                                                             value = randomAmountText,
-                                                            onValueChange = {
-                                                                if (it.length <= 3) {
-                                                                    randomAmountText = it
+                                                            onValueChange = { s ->
+                                                                if (s.length <= 3) {
+                                                                    randomAmountText = s
                                                                     randomAmount = minOf(
-                                                                        it.toIntOrNull() ?: 0,
+                                                                        s.toIntOrNull() ?: 0,
                                                                         state.cardPreviews.count { it.isEnglish })
                                                                     val selected =
                                                                         if (randomAmount > 0) state.cardPreviews.filter { it.isEnglish }

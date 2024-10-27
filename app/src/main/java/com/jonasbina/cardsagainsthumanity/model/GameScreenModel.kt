@@ -5,6 +5,7 @@ import com.jonasbina.cardsagainsthumanity.screen.PackSelectionMode
 import cafe.adriel.voyager.core.model.ScreenModel
 import cafe.adriel.voyager.core.model.screenModelScope
 import com.jonasbina.cardsagainsthumanity.R
+import com.jonasbina.cardsagainsthumanity.util.fuck
 import io.github.xxfast.kstore.KStore
 import io.github.xxfast.kstore.extensions.get
 import io.github.xxfast.kstore.file.storeOf
@@ -24,8 +25,10 @@ data class SavedJoke(
 class GameScreenModel(context: Context) : ScreenModel {
     private val sharedPreferencesManager = SharedPreferencesManager(context)
     private val kstore: KStore<List<SavedJoke>> = storeOf("${context.dataDir}/jokes.json".toPath())
-    private val cardPackPreviewStore:KStore<List<CardPackPreview>> = storeOf("${context.dataDir}/previews.json".toPath())
-    private val cardsStore: KStore<List<CardPack>> = storeOf("${context.dataDir}/cards.json".toPath())
+    private val cardPackPreviewStore: KStore<List<CardPackPreview>> =
+        storeOf("${context.dataDir}/previews.json".toPath())
+    private val cardsStore: KStore<List<CardPack>> =
+        storeOf("${context.dataDir}/cards.json".toPath())
     private val _state = MutableStateFlow(
         GameState(
             selectedPackIndices = setOf(0),
@@ -46,30 +49,25 @@ class GameScreenModel(context: Context) : ScreenModel {
         val official: Boolean,
         val white: Set<WhiteCard>,
         val black: Set<BlackCard>,
-        val isEnglish:Boolean,
-        val id:Int
+        val isEnglish: Boolean,
+        val id: Int
     )
+
     @Serializable
     data class CardPackPreview(
         val name: String,
         val official: Boolean,
         val isEnglish: Boolean,
-        val id:Int,
-        val blackCardAmount:Int,
-        val whiteCardAmount:Int
+        val id: Int,
+        val blackCardAmount: Int,
+        val whiteCardAmount: Int
     )
 
-    @Serializable
-    data class WhiteCard(
-        val text: String,
-        val pack: Int
-    )
 
     @Serializable
     data class BlackCard(
         val text: String,
         val pick: Int,
-        val pack: Int
     )
 
     data class GameState(
@@ -83,36 +81,67 @@ class GameScreenModel(context: Context) : ScreenModel {
         val savedJokes: List<SavedJoke> = emptyList(),
         val saved: Boolean = false,
         val packSelectionMode: PackSelectionMode,
-        val cardPreviews:List<CardPackPreview>,
-        val italian:Boolean = false,
-        val czech:Boolean = false,
-        val catalan:Boolean = false,
-        val loaded:Boolean = false,
+        val cardPreviews: List<CardPackPreview>,
+        val italian: Boolean = false,
+        val czech: Boolean = false,
+        val catalan: Boolean = false,
+        val loaded: Boolean = false,
     ) {
         val availableWhiteCards: Set<WhiteCard> get() = whiteCardsInPlay
         val availableBlackCards: Set<BlackCard> get() = blackCardsInPlay
     }
 
+    @Serializable
+    data class WhiteCard(val text: String)
+
     init {
+        fuck(context.dataDir.absolutePath)
         screenModelScope.launch {
-            if (cardPackPreviewStore.get(0)==null){
-                cardPackPreviewStore.set(loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()).map { CardPackPreview(it.name,it.official,it.isEnglish,it.id,it.black.size, it.white.size) })
+            if (cardPackPreviewStore.get(0) == null) {
+                cardPackPreviewStore.set(
+                    loadCardPacksFromFile(
+                        context.resources.openRawResource(R.raw.cahfull).readBytes()
+                            .decodeToString()
+                    ).map {
+                        CardPackPreview(
+                            it.name,
+                            it.official,
+                            it.isEnglish,
+                            it.id,
+                            it.black.size,
+                            it.white.size
+                        )
+                    })
             }
             _state.update {
-                it.copy(cardPreviews = cardPackPreviewStore.get()?:it.cardPreviews)
+                it.copy(cardPreviews = cardPackPreviewStore.get() ?: it.cardPreviews)
             }
         }
         updateSelectedPacks(setOf(0))
         screenModelScope.launch {
-            if (cardsStore.get(0)==null){
-                cardsStore.set(loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()))
+            if (cardsStore.get(0) == null) {
+                cardsStore.set(
+                    loadCardPacksFromFile(
+                        context.resources.openRawResource(R.raw.cahfull).readBytes()
+                            .decodeToString()
+                    ).map {
+                        CardPack(
+                            name = it.name,
+                            official = it.official,
+                            white = it.white/*.map { it.text }.toSet()*/,
+                            black = it.black,
+                            isEnglish = it.isEnglish,
+                            id = it.id
+                        )
+                    }
+                )
             }
         }
-        val czech = sharedPreferencesManager.loadBoolean("czech",false)
-        val italian = sharedPreferencesManager.loadBoolean("italian",false)
-        val catalan = sharedPreferencesManager.loadBoolean("catalan",false)
+        val czech = sharedPreferencesManager.loadBoolean("czech", false)
+        val italian = sharedPreferencesManager.loadBoolean("italian", false)
+        val catalan = sharedPreferencesManager.loadBoolean("catalan", false)
         _state.update {
-            it.copy(czech = czech,italian = italian, catalan = catalan)
+            it.copy(czech = czech, italian = italian, catalan = catalan)
         }
         screenModelScope.launch {
             val savedJokes = kstore.get()
@@ -123,7 +152,8 @@ class GameScreenModel(context: Context) : ScreenModel {
             }
         }
     }
-    fun setPackSeletionMode(packSelectionMode: PackSelectionMode){
+
+    fun setPackSeletionMode(packSelectionMode: PackSelectionMode) {
         _state.update {
             it.copy(packSelectionMode = packSelectionMode)
         }
@@ -183,21 +213,25 @@ class GameScreenModel(context: Context) : ScreenModel {
             )
         }
     }
-    fun setCzech(czech:Boolean){
+
+    fun setCzech(czech: Boolean) {
         _state.update {
             it.copy(czech = czech)
         }
     }
-    fun setItalian(italian:Boolean){
+
+    fun setItalian(italian: Boolean) {
         _state.update {
             it.copy(italian = italian)
         }
     }
-    fun setCatalan(catalan:Boolean){
+
+    fun setCatalan(catalan: Boolean) {
         _state.update {
             it.copy(catalan = catalan)
         }
     }
+
     fun startGame() = screenModelScope.launch {
         _state.update {
             it.copy(loaded = false)

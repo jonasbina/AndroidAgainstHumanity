@@ -192,7 +192,6 @@ class GameScreen : Screen {
                     blackCard = GameScreenModel.BlackCard(
                         "Hold on a second, we're loading the game for you",
                         1,
-                        0
                     ),
                     selectedCards = emptySet(),
                 )
@@ -215,20 +214,18 @@ class GameScreen : Screen {
                 ) {
                     items(
                         items = listOf(
-                            GameScreenModel.WhiteCard("Loading", 0),
-                            GameScreenModel.WhiteCard("The game", 0),
-                            GameScreenModel.WhiteCard("For you", 0),
-                            GameScreenModel.WhiteCard("Hang", 0),
-                            GameScreenModel.WhiteCard(
-                                "On", 0
-                            ),
-                            GameScreenModel.WhiteCard("For a second", 0),
-                            GameScreenModel.WhiteCard("There", 0),
-                            GameScreenModel.WhiteCard("Mate", 0),
-                            GameScreenModel.WhiteCard("Thanks", 0),
-                            GameScreenModel.WhiteCard("For patience.", 0)
+                            GameScreenModel.WhiteCard("Loading"),
+                            GameScreenModel.WhiteCard("The game"),
+                            GameScreenModel.WhiteCard("For you"),
+                            GameScreenModel.WhiteCard("Hang"),
+                            GameScreenModel.WhiteCard("On"),
+                            GameScreenModel.WhiteCard("For a second"),
+                            GameScreenModel.WhiteCard("There"),
+                            GameScreenModel.WhiteCard("Mate"),
+                            GameScreenModel.WhiteCard("Thanks"),
+                            GameScreenModel.WhiteCard("For patience.")
                         ),
-                        key = { it.text }
+                        key = { it }
                     ) { card ->
                         WhiteCardItem(
                             card = card,
@@ -483,7 +480,7 @@ fun fillIn(
         }
 
         var tempText = blackCard.text
-        selectedCards.forEach {card ->
+        selectedCards.forEach { card ->
             var cardText = card.text
             cardText = if (cardText.last() == '.') cardText.dropLast(1) else cardText
             if (!tempText.startsWith("_") && lowerCaseEnabled) {
