@@ -32,13 +32,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.AnnotatedString
-import androidx.compose.ui.text.SpanStyle
-import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import cafe.adriel.voyager.core.model.rememberNavigatorScreenModel
@@ -65,8 +60,12 @@ class SettingsScreen : Screen {
         var italian by remember {
             mutableStateOf(sharedPreferencesManager.loadBoolean("italian"))
         }
+        var catalan by remember {
+            mutableStateOf(sharedPreferencesManager.loadBoolean("catalan"))
+        }
         sharedPreferencesManager.saveBoolean(italian, "italian")
         sharedPreferencesManager.saveBoolean(czech, "czech")
+        sharedPreferencesManager.saveBoolean(catalan, "catalan")
         Scaffold(topBar = {
             TopAppBar(
                 title = { Text("More languages", fontFamily = inter) },
@@ -103,6 +102,7 @@ class SettingsScreen : Screen {
                     text = "Enable the Czech pack",
                     note = ""
                 )
+                Spacer(modifier = Modifier.height(20.dp))
                 ShowSettingsOption(checked = italian, onCheckedChange = {
                     sharedPreferencesManager.saveBoolean(
                         it,
@@ -110,6 +110,14 @@ class SettingsScreen : Screen {
                     );italian=it
                     viewModel.setItalian(it)
                 }, text = "Enable the Italian pack", note = "")
+                Spacer(modifier = Modifier.height(20.dp))
+                ShowSettingsOption(checked = catalan, onCheckedChange = {
+                    sharedPreferencesManager.saveBoolean(
+                        it,
+                        "catalan"
+                    );catalan=it
+                    viewModel.setCatalan(it)
+                }, text = "Enable the Catalan pack", note = "")
                 Spacer(modifier = Modifier.height(20.dp))
             }
         }

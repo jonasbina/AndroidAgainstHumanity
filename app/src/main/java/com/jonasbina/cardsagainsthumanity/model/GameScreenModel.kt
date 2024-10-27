@@ -24,7 +24,7 @@ data class SavedJoke(
 class GameScreenModel(context: Context) : ScreenModel {
     private val sharedPreferencesManager = SharedPreferencesManager(context)
     private val kstore: KStore<List<SavedJoke>> = storeOf("${context.dataDir}/jokes.json".toPath())
-    private val cardPackPreviewStore:KStore<List<CardPackPreview>> = storeOf("${context.dataDir}/cardPackPreviews.json".toPath())
+    private val cardPackPreviewStore:KStore<List<CardPackPreview>> = storeOf("${context.dataDir}/previews.json".toPath())
     private val cardsStore: KStore<List<CardPack>> = storeOf("${context.dataDir}/cards.json".toPath())
     private val _state = MutableStateFlow(
         GameState(
@@ -54,7 +54,9 @@ class GameScreenModel(context: Context) : ScreenModel {
         val name: String,
         val official: Boolean,
         val isEnglish: Boolean,
-        val id:Int
+        val id:Int,
+        val blackCardAmount:Int,
+        val whiteCardAmount:Int
     )
 
     @Serializable
@@ -84,7 +86,8 @@ class GameScreenModel(context: Context) : ScreenModel {
         val cardPreviews:List<CardPackPreview>,
         val italian:Boolean = false,
         val czech:Boolean = false,
-        val loaded:Boolean = false
+        val catalan:Boolean = false,
+        val loaded:Boolean = false,
     ) {
         val availableWhiteCards: Set<WhiteCard> get() = whiteCardsInPlay
         val availableBlackCards: Set<BlackCard> get() = blackCardsInPlay
@@ -93,7 +96,7 @@ class GameScreenModel(context: Context) : ScreenModel {
     init {
         screenModelScope.launch {
             if (cardPackPreviewStore.get(0)==null){
-                cardPackPreviewStore.set(loadCardPackPreviewsFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()))
+                cardPackPreviewStore.set(loadCardPacksFromFile(context.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()).map { CardPackPreview(it.name,it.official,it.isEnglish,it.id,it.black.size, it.white.size) })
             }
             _state.update {
                 it.copy(cardPreviews = cardPackPreviewStore.get()?:it.cardPreviews)
@@ -107,8 +110,9 @@ class GameScreenModel(context: Context) : ScreenModel {
         }
         val czech = sharedPreferencesManager.loadBoolean("czech",false)
         val italian = sharedPreferencesManager.loadBoolean("italian",false)
+        val catalan = sharedPreferencesManager.loadBoolean("catalan",false)
         _state.update {
-            it.copy(czech = czech,italian = italian)
+            it.copy(czech = czech,italian = italian, catalan = catalan)
         }
         screenModelScope.launch {
             val savedJokes = kstore.get()
@@ -189,6 +193,11 @@ class GameScreenModel(context: Context) : ScreenModel {
             it.copy(italian = italian)
         }
     }
+    fun setCatalan(catalan:Boolean){
+        _state.update {
+            it.copy(catalan = catalan)
+        }
+    }
     fun startGame() = screenModelScope.launch {
         _state.update {
             it.copy(loaded = false)
@@ -225,10 +234,6 @@ class GameScreenModel(context: Context) : ScreenModel {
     }
 
     private fun loadCardPacksFromFile(fileContent: String): List<CardPack> {
-        val json = Json { ignoreUnknownKeys = true }
-        return json.decodeFromString(fileContent)
-    }
-    private fun loadCardPackPreviewsFromFile(fileContent: String): List<CardPackPreview> {
         val json = Json { ignoreUnknownKeys = true }
         return json.decodeFromString(fileContent)
     }
