@@ -23,8 +23,8 @@ class MainActivity : ComponentActivity() {
         }
 
         enableEdgeToEdge()
-//        val actualSavedState = null // Explicitly ignore saved state
-        super.onCreate(savedInstanceState)
+        val actualSavedState = null // Explicitly ignore saved state
+        super.onCreate(actualSavedState)
         setContent {
             CardsAgainstHumanityTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { a ->
@@ -38,8 +38,8 @@ class MainActivity : ComponentActivity() {
         applicationContext.resources.openRawResource(R.raw.cahfull).readBytes().decodeToString()
 
     }
-//    override fun onSaveInstanceState(outState: Bundle) {
-//        // Don't save instance state to prevent TransactionTooLargeException
-//        super.onSaveInstanceState(Bundle())
-//    }
+    override fun onSaveInstanceState(outState: Bundle) {
+        // Don't save instance state to prevent TransactionTooLargeException
+        super.onSaveInstanceState(Bundle())
+    }
 }

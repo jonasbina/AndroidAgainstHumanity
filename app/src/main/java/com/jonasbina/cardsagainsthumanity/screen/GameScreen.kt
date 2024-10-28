@@ -225,7 +225,7 @@ class GameScreen : Screen {
                             GameScreenModel.WhiteCard("Thanks"),
                             GameScreenModel.WhiteCard("For patience.")
                         ),
-                        key = { it }
+                        key = { it.text }
                     ) { card ->
                         WhiteCardItem(
                             card = card,
